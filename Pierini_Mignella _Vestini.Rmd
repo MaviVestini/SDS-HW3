@@ -1,0 +1,64 @@
+---
+title: "Pierini_Mignella_Vestini"
+output: html_document
+date: "2023-02-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+library(parallel)
+```
+
+```{r setup}
+set.seed(2611)
+```
+
+
+```{r pressure, echo=FALSE}
+
+simul <- function(x, n0, n1, mu, k, alpha){
+  
+  z_t <- mvrnorm(n1, mu = rep(0, k), Sigma = diag(k))
+  u_t <- rbind(cbind(x, Label = 0), cbind(z_t, Label = 1)) 
+  
+  model <- glm(Label ~ ., data = as.data.frame(u_t))
+  score <- predict(model, as.data.frame(u_t))
+  
+  return(1*((ks.test(score[1:n0], score[(n0+1):(n0+n1)])$p.value) > alpha))
+  
+}
+
+```
+
+
+```{r pressure}
+
+n0 <- 80
+n1 <- 90
+k <- 3
+P <- 10000
+alpha <- 0.05
+
+
+x <- mvrnorm(n0, mu = rep(0, k), Sigma = diag(k))
+t_l <- c()
+cl <- makeCluster(detectCores())
+mu <- seq(0, 0.5, by = 0.1)
+
+for(m in (1:6)){
+  m_t <- mu[m]
+  clusterExport(cl, c("simul", "mvrnorm", "x", "n0", "n1", "m_t", "k", "alpha"))
+  t_l <- c(t_l, parallel::parSapply(cl, seq(1, P), function(.) simul(x, n0, n1, m_t, k, alpha)))
+}
+
+t_l <- matrix(t_l, ncol = P)
+
+```
+
+```{r}
+sum(t_l[1,] )
+```
+
+
+
