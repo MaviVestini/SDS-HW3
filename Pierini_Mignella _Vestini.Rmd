@@ -10,16 +10,15 @@ library(MASS)
 library(parallel)
 ```
 
-```{r setup}
-set.seed(2611)
+```{r}
+set.seed(123)
 ```
 
 
-```{r pressure, echo=FALSE}
+```{r}
 
-simul <- function(x, n0, n1, mu, k, alpha){
-  
-  z_t <- mvrnorm(n1, mu = rep(0, k), Sigma = diag(k))
+simul <- function(x, n0, n1, mu, k, alpha, u){
+  z_t <- mvrnorm(n1, mu = rep(mu, k), Sigma = diag(k))
   u_t <- rbind(cbind(x, Label = 0), cbind(z_t, Label = 1)) 
   
   model <- glm(Label ~ ., data = as.data.frame(u_t))
@@ -32,7 +31,7 @@ simul <- function(x, n0, n1, mu, k, alpha){
 ```
 
 
-```{r pressure}
+```{r}
 
 n0 <- 80
 n1 <- 90
@@ -42,22 +41,23 @@ alpha <- 0.05
 
 
 x <- mvrnorm(n0, mu = rep(0, k), Sigma = diag(k))
+z <- mvrnorm(n1, mu = rep(0, k), Sigma = diag(k))
+u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1)) 
+
 t_l <- c()
 cl <- makeCluster(detectCores())
-mu <- seq(0, 0.5, by = 0.1)
 
-for(m in (1:6)){
-  m_t <- mu[m]
-  clusterExport(cl, c("simul", "mvrnorm", "x", "n0", "n1", "m_t", "k", "alpha"))
-  t_l <- c(t_l, parallel::parSapply(cl, seq(1, P), function(.) simul(x, n0, n1, m_t, k, alpha)))
+for(mu in seq(0, 0.5, by = 0.1)){
+  clusterExport(cl, c("simul", "mvrnorm", "x", "n0", "n1", "mu", "k", "alpha"))
+  t_l <- c(t_l, parallel::parSapply(cl, seq(1, P), function(.) simul(x, n0, n1, mu, k, alpha)))
 }
 
-t_l <- matrix(t_l, ncol = P)
-
+t_l <- matrix(t_l, nrow = P)
+stopCluster(cl)
 ```
 
 ```{r}
-sum(t_l[1,] )
+for(i in (1:6)) print(prop.table(table(t_l[,i] )))
 ```
 
 

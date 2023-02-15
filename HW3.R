@@ -1,23 +1,7 @@
 
 # reproducibility
-set.seed(2611)
+set.seed(123)
 # Simulation size
-N <- 1000
-
-
-
-# Friedman's procedure
-
-# We are going to use the logistic regression classifier
-# So we will need the sigmoid function
-
-sigmoid <- function(x, theta){
-  l <-  length(theta)
-  aux <- exp(theta[1] + sum(x*theta[2:l]))
-  
-  return(aux/(aux+1))
-}
-
 
 
 # 3 -----------------------------------------------------------------------
@@ -26,49 +10,58 @@ n0 <- 93
 n1 <- 91
 k <- 3
 alpha <- 0.01
+N <- 1000
 
-labels <- seq(1, k+1, by=1)
-labels[k+1] <- 'Label'
 
 # first attempt, same distribution: normal with mean 0 and sd 1
+c(1,3,0.2)
+?diag
+diag(c(0.4,2,1))
 
-p <- data.frame(cbind(matrix(rnorm(n0*k), nrow = n0), 0))
-q <- data.frame(cbind(matrix(rnorm(n1*k), nrow = n1), 1))
+x <- mvrnorm(n0, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+z <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1)) 
 
-colnames(p) <- labels
-colnames(q) <- labels
-
-data <- rbind(p, q)
 
 
 # First thing to do is train the model 
 
 # TODO add names: dimnames = c('Kolmogorov-Smirnov', 'Mann-Whitney')
-stats <- matrix(NA, nrow = N, ncol = 2)
+stats <- rep(NA, N)
 
 for(i in (1:N)){
-  q_d <- data.frame(cbind(matrix(rnorm(n1*k), nrow = n1), 1))
-  colnames(q_d) <- labels
   
-  data_temp <- data.frame(rbind(p, q_d))
+  z_t <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+  u_t <- rbind(cbind(x, Label = 0), cbind(z_t, Label = 1)) 
     
   # First thing to do is train the model
-  coefs <- glm(Label ~ ., data = data_temp)$coefficients 
+  model <- glm(Label ~ ., data = as.data.frame(u_t))
+  score <- predict(model, as.data.frame(u))
   
-  ps <- apply(p, 1, sigmoid, theta = coefs) 
-  qs <- apply(q, 1, sigmoid, theta = coefs) 
-  qs_d <- apply(q_d, 1, sigmoid, theta = coefs) #TODO capisci quali vanno usati
-  #hist(ps)
-  #hist(qs)
-  #hist(qs_d)
-  
-  #stats[i,1] <- ks.test(ps, qs, alternative = "two.sided")$statistic
-  stats[i,1] <- ks.test(ps, qs_d, alternative = "two.sided")$statistic
-  #stats[i,2] <- wilcox.test(ps, qs, alternative = "two.sided")$statistic
-  stats[i,2] <- wilcox.test(ps, qs_d, alternative = "two.sided")$statistic
+  stats[i] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic
 }
 
 
+hist(stats)
+abline(v = quantile(stats, 1 - alpha), col = 'blue')
+
+# check
+
+
+result <- rep(NA, N)
+
+for(i in (1:N)){
+  x <- mvrnorm(n0, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+  z <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+  u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1))
+  
+  model <- glm(Label ~ ., data = as.data.frame(u))
+  score <- predict(model, as.data.frame(u))
+  result[i] <- 1*(ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic<quantile(stats, 1 - alpha))
+}
+
+
+barplot(prop.table(table(result)))
 
 
 # Get the results for the true data
