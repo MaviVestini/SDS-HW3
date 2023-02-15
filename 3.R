@@ -66,7 +66,7 @@ for(i in (1:P)){
 barplot(prop.table(table(t_l)))
 table(t_l)
 
-
+?curve
 
 #t_l <- matrix(NA, P, 11)
 P <- 10000
