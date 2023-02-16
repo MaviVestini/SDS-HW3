@@ -64,6 +64,9 @@ for(i in (1:N)){
 barplot(prop.table(table(result)))
 
 
+# TODO Funzione della distanza Wasserstein
+
+
 # Get the results for the true data
 coefs <- glm(Label ~ ., data = data)$coefficients 
 ps <- apply(p, 1, sigmoid, theta = coefs) 
