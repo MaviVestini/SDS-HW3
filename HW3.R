@@ -1,39 +1,140 @@
 
 # reproducibility
-set.seed(262)
+library(MASS)
+set.seed(123)
 # Simulation size
 
 
 # 3 -----------------------------------------------------------------------
 
-n0 <- 35
-n1 <- 40
+?acf
+
+boh <- acf(asd_data[[1]][[1]], lag = length(asd_data[[1]][[1]])  ,type = "covariance")
+
+n0 <- 43
+n1 <- 34
 k <- 3
-alpha <- 0.01
-N <- 1000
+alpha <- 0.05
+N <- 100
 
 
 # first attempt, same distribution: normal with mean 0 and sd 1
 c(1,3,0.2)
-?diag
 diag(c(0.4,2,1))
+
+# alpha 
+
+result <- rep(NA, N)
+
+
+for(j in (1:N)){
+  x <- mvrnorm(n0, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+  z <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+  u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1)) 
+  
+  
+  
+  # First thing to do is train the model 
+  
+  stats <- rep(NA, N)
+  
+  for(i in (1:N)){
+    
+    z_t <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+    u_t <- rbind(cbind(x, Label = 0), cbind(z_t, Label = 1)) 
+      
+    # First thing to do is train the model
+    model <- glm(Label ~ ., data = as.data.frame(u_t))
+    score <- predict(model, as.data.frame(u_t))
+    
+    stats[i] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic
+  }
+  
+  
+  #hist(stats, prob = T)
+  #abline(v = quantile(stats, 1 - alpha), col = 'blue')
+  
+  
+  model <- glm(Label ~ ., data = as.data.frame(u))
+  score <- predict(model, as.data.frame(u))
+  result[j] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic < quantile(stats, 1 - alpha)
+}
+
+sum(result==F)/100
+
+# distanza
+
+wasserstein_sameS <- function(mu1, mu2){
+  return(sum((mu1-mu2)^2))
+}
+?dist
+
+# power
+
+?barplot
+result <- rep(NA, N)
+POWER <- matrix(NA, 11, 2)
+grid <- seq(0, 1, 0.1)
+
+for(l in (1:11)){
+  m <- c(1,3,0.2)
+  
+  for(j in (1:N)){
+    
+    x <- mvrnorm(n0, mu = m, Sigma = diag(c(0.4,2,1)))
+    z <- mvrnorm(n1, mu = m+rep(grid[l],3), Sigma = diag(c(0.4,2,1)))
+    u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1)) 
+    
+    
+    
+    # First thing to do is train the model 
+    
+    stats <- rep(NA, N)
+    
+    for(i in (1:N)){
+      
+      z_t <- mvrnorm(n1, mu = m, Sigma = diag(c(0.4,2,1)))
+      u_t <- rbind(cbind(x, Label = 0), cbind(z_t, Label = 1)) 
+      
+      # First thing to do is train the model
+      model <- glm(Label ~ ., data = as.data.frame(u_t))
+      score <- predict(model, as.data.frame(u_t))
+      
+      stats[i] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic
+    }
+    
+    
+    #hist(stats, prob = T)
+    #abline(v = quantile(stats, 1 - alpha), col = 'blue')
+    
+    
+    model <- glm(Label ~ ., data = as.data.frame(u))
+    score <- predict(model, as.data.frame(u))
+    result[j] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic < quantile(stats, 1 - alpha)
+  }
+  POWER[l,1] <- wasserstein_sameS(m,m+rep(grid[l],3))
+  POWER[l,2] <- sum(result==F)/100
+}
+
+
+plot(POWER[(1:11),2], type = 'l', lwd = 4)
+?curve
+
+
 
 x <- mvrnorm(n0, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
 z <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
 u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1)) 
 
-
-
 # First thing to do is train the model 
 
-# TODO add names: dimnames = c('Kolmogorov-Smirnov', 'Mann-Whitney')
 stats <- rep(NA, N)
 
 for(i in (1:N)){
   
   z_t <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
   u_t <- rbind(cbind(x, Label = 0), cbind(z_t, Label = 1)) 
-    
+  
   # First thing to do is train the model
   model <- glm(Label ~ ., data = as.data.frame(u_t))
   score <- predict(model, as.data.frame(u))
@@ -42,141 +143,52 @@ for(i in (1:N)){
 }
 
 
-hist(stats)
+hist(stats, prob = T)
 abline(v = quantile(stats, 1 - alpha), col = 'blue')
+
+
 
 # check
 
+q <- quantile(stats, 1 - alpha)
+sum(stats>q)/N
 
-result <- rep(NA, N)
+result <- matrix(NA, N, 2)
 
 for(i in (1:N)){
-  x <- mvrnorm(n0, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
-  z <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
-  u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1))
+  z_t <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+  u_t <- rbind(cbind(x, Label = 0), cbind(z, Label = 1))
   
-  model <- glm(Label ~ ., data = as.data.frame(u))
+  model <- glm(Label ~ ., data = as.data.frame(u_t))
   score <- predict(model, as.data.frame(u))
-  result[i] <- 1*(ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic<quantile(stats, 1 - alpha))
+  result[i,1] <- 1*(ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic<q)
+  result[i,2] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$p.value
 }
 
 
-barplot(prop.table(table(result)))
+barplot(prop.table(table(result[,1])))
+hist(result[result[,2]<alpha,2])
 
 
-# TODO Funzione della distanza Wasserstein
 
+sum(result[,2]<=alpha)/N
 
-# Get the results for the true data
-coefs <- glm(Label ~ ., data = data)$coefficients 
-ps <- apply(p, 1, sigmoid, theta = coefs) 
-qs <- apply(q, 1, sigmoid, theta = coefs) 
-
-ks_true <- ks.test(ps, qs, alternative = "two.sided")$statistic
-mann_true <- wilcox.test(ps, qs, alternative = "two.sided")$statistic
-
-
-hist(stats[,1])
-abline(v = ks_true, col = 'orchid')
-abline(v = quantile(stats[,1], 1 - alpha), col = 'blue')
-
-hist(stats[,2])
-abline(v = mann_true, col = 'orchid')
-abline(v = quantile(stats[,2], 1 - alpha), col = 'blue')
-
-
-# Now let's check the size and power
-
-# For the size we will have to check how many times the hypothesis is rejected 
-# under H0, so using the same distribution
-
-results <- matrix(NA, nrow = N, ncol = 2)
+PV <- rep(NA, N)
+x <- mvrnorm(n0, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+z <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+u <- rbind(cbind(x, Label = 0), cbind(z, Label = 1))
 
 for(i in (1:N)){
-  p <- data.frame(cbind(matrix(rnorm(n0*k), nrow = n0), 0))
-  q <- data.frame(cbind(matrix(rnorm(n1*k), nrow = n1), 1))
+  z_t <- mvrnorm(n1, mu = c(1,3,0.2), Sigma = diag(c(0.4,2,1)))
+  u_t <- rbind(cbind(x, Label = 0), cbind(z_t, Label = 1))
   
-  colnames(p) <- labels
-  colnames(q) <- labels
-  
-  data <- rbind(p, q)
-  
-  # Get the results for the true data
-  coefs <- glm(Label ~ ., data = data)$coefficients 
-  ps <- apply(p, 1, sigmoid, theta = coefs) 
-  qs <- apply(q, 1, sigmoid, theta = coefs) 
-  
-  
-  ks_true <- ks.test(ps, qs, alternative = "two.sided")$statistic
-  mann_true <- wilcox.test(ps, qs, alternative = "two.sided")$statistic
-  
-  results[i,1] <- 1*(ks_true < quantile(stats[,1], 1-alpha))
-  results[i,2] <- 1*(mann_true < quantile(stats[,2], 1-alpha))
+  model <- glm(Label ~ ., data = as.data.frame(u_t))
+  score <- predict(model, as.data.frame(u))
+  PV[i] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$p.value
 }
 
-barplot(table(results[,1]))
-barplot(table(results[,2]))
 
-
-# For the size we will have to check how many times the hypothesis is rejected 
-# under H1, so using two different distributions. 
-# And that is going to be 1 - the power
-
-results <- matrix(NA, nrow = N, ncol = 2)
-
-for(i in (1:N)){
-  p <- data.frame(cbind(matrix(rnorm(n0*k), nrow = n0), 0))
-  q <- data.frame(cbind(matrix(rnorm(n1*k, 10, 2), nrow = n1), 1))
-  
-  colnames(p) <- labels
-  colnames(q) <- labels
-  
-  data <- rbind(p, q)
-  
-  # Get the results for the true data
-  coefs <- glm(Label ~ ., data = data)$coefficients 
-  ps <- apply(p, 1, sigmoid, theta = coefs) 
-  qs <- apply(q, 1, sigmoid, theta = coefs) 
-  
-  
-  ks_true <- ks.test(ps, qs, alternative = "two.sided")$statistic
-  mann_true <- wilcox.test(ps, qs, alternative = "two.sided")$statistic
-  
-  results[i,1] <- 1*(ks_true < quantile(stats[,1], 1-alpha))
-  results[i,2] <- 1*(mann_true < quantile(stats[,2], 1-alpha))
-}
-
-barplot(table(results[,1]))
-barplot(table(results[,2]))
-
-
-
-
-
-
-# Second attempt, different distributions: 
-# Normal with mean 0 and sd 1
-# Gamma 
-?rgamma
-p <- data.frame(cbind(matrix(rnorm(n0*k), nrow = n0), 0))
-q <- data.frame(cbind(matrix(rgamma(n1*k, 5, 8), nrow = n1), 1))
-
-colnames(p) <- labels
-colnames(q) <- labels
-
-data <- rbind(p, q)
-
-# Friedman's procedure
-
-# We are going to use the logistic regression classifier
-# So we will need the sigmoid function
-
-sigmoid <- function(x, theta){
-  l <-  length(theta)
-  aux <- exp(theta[1] + sum(x*theta[2:l]))
-  
-  return(aux/(aux+1))
-}
+hist(PV, prob = T)
 
 
 
@@ -189,73 +201,6 @@ sigmoid <- function(x, theta){
 ?seq
 ?matrix
 # 4 -----------------------------------------------------------------------
-
-
-
-
-
-# test
-
-model <- glm(Label ~ ., data = as.data.frame(u))
-
-results <- matrix(NA, nrow = P, ncol = 2)
-
-for(i in (1:P)){
-  p <- mvrnorm(n0, mu = rep(0, k), Sigma = diag(k))
-  q <- mvrnorm(n1, mu = rep(0, k), Sigma = diag(k))
-  
-  data <- rbind(cbind(p, Label = 0), cbind(q, Label = 1))  
-  
-  # Get the results for the true data
-  #coefs <- glm(Label ~ ., data = as.data.frame(data))
-  score <- predict(model, as.data.frame(data))
-  
-  
-  ks_true <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic
-  #mann_true <- wilcox.test(ps, qs, alternative = "two.sided")$statistic
-  
-  #results[i,1] <- 1*(ks_true > quantile(t_l, alpha/2) & ks_true < quantile(t_l, 1 - (alpha/2)) )
-  results[i,1] <- 1*(ks_true < quantile(t_l, 1 - (alpha))) #& ks_true < quantile(t_l, 1 - (alpha/2)) )
-  results[i, 2] <- ks_true
-  abline(v = ks_true, col = 'red')
-  #results[i,2] <- 1*(mann_true < quantile(stats[,2], 1-alpha))
-}
-
-barplot(table(results[,1]))
-
-
-# H1
-
-
-
-hist(t_l, prob = T)  
-abline(v = quantile(t_l, 1 - (alpha/2))) 
-abline(v = quantile(t_l, alpha/2)) 
-
-
-model <- glm(Label ~ ., data = as.data.frame(u))
-
-for(i in (1:P)){
-  p <- mvrnorm(n0, mu = rep(0, k), Sigma = diag(k))
-  q <- mvrnorm(n1, mu = rep(0.5, k), Sigma = diag(k))
-  
-  data <- rbind(cbind(p, Label = 0), cbind(q, Label = 1))  
-  
-  # Get the results for the true data
-  #coefs <- glm(Label ~ ., data = as.data.frame(data))
-  score <- predict(model, as.data.frame(data))
-  
-  
-  ks_true <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic
-  #mann_true <- wilcox.test(ps, qs, alternative = "two.sided")$statistic
-  
-  results[i,1] <- 1*(ks_true > quantile(t_l, alpha/2) & ks_true < quantile(t_l, 1 - (alpha/2)) )
-  results[i, 2] <- ks_true
-  abline(v = ks_true, col = 'red')
-  #results[i,2] <- 1*(mann_true < quantile(stats[,2], 1-alpha))
-}
-
-barplot(table(results[,1]))
 
 
 

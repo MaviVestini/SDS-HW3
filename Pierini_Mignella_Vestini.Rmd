@@ -1,0 +1,907 @@
+---
+title: "Pierini_Mignella_Vestini"
+output: html_document
+date: "2023-02-13"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+# libraries
+library(MASS)
+library(parallel)
+library(latex2exp)
+library(glmnet)
+library(Matrix)
+```
+
+Before starting anything we need to set the seed and define a couple of functions.\
+
+First we defined a function to compute the Wasserstein's distance in the case of two multivariate normal distributions with the same variance/covariance matrix.
+
+Given a distribution N(mu1, sigma) and a value d, we will use the second function to find the increment i to apply to mu1 to get a second distribution N(mu1+i, sigma), such that the Wasserstein's distance between the two is equal to d.
+
+```{r}
+# set the seed for reproducibility
+set.seed(3752)
+
+
+# Function to compute the Wasserstein's distance 
+wasserstein_sameS <- function(mu1, mu2){
+  return(sum((mu1-mu2)^2))
+}
+
+
+# Function to find the right increment to apply to the mean to get a set 
+# Wasserstein distance 
+Find_Increment <- function(d, k){
+  return(sqrt(d/k))
+}
+
+```
+
+# 3
+
+<div align="center"> <h3> <b> GOODNESS-OF-FIT </b> </h3></div>
+
+
+
+The goodness-of-fit problem occurs when we have a data set $\{x_i\}_{i=1}^{N}$ and we have to figure out whether the density distribution $p(x)$ of the data set is the same as the one of the given distribution $p_0(x)$.
+
+Continuing the explanation given in the summary of Friedman's paper, for the goodness-of-fit procedure we need to build the $H_0(t)$ distribution. To do so we need to: 
+
+1. Draw a sample $z_t$ from the known distribution.
+
+2. Train the model (in our case a logistic regression model) with the data set $\{u_i\}_{i=1}^{N+M}=\{x_i\}_{i=1}^{N} \cup \{z_{t_i}\}_{i=1}^{M}$ and obtain the scores $s_{t_i}$.
+
+3. Collect the test statistic $t_l = T(\{s_{t_i}\}_{i=1}^{N}, \{s_{t_i}\}_{i=N + 1}^{N+M})$, that we are going to use as a null distribution.
+
+
+Here is the function used for the implementation of the procedure.
+
+```{r}
+# Function that implements the Friedman's procedure for the goodness-of-fit problem
+simul_GOF <- function(n0, n1, mu1, mu2, sigma, alpha){
+  # Samples
+  x <- mvrnorm(n0, mu = mu1, Sigma = diag(sigma))
+  z <- mvrnorm(n1, mu = mu2, Sigma = diag(sigma))
+  
+  # labels
+  label <- c(rep(0, n0), rep(1, n1))
+  
+  # Put them together with the respectives labels
+  u <- cbind(rbind(x, z), Label = label)
+  
+  # Monte Carlo simulation size to find the H_0(t) distribution
+  N <- 50  # TODO metti 500
+  
+  # Vector to save the test statistics 
+  stats <- rep(NA, N)
+  
+  # Simulation
+  for(i in (1:N)){
+    # Get a new sample distributed as x (under H_0) 
+    z_t <- mvrnorm(n1, mu = mu1, Sigma = diag(sigma))
+    # And put them together
+    u_t <- rbind(x, z_t)
+    
+    # Set the labels
+    u_t <- cbind(u_t, Label = label)
+      
+    # First thing to do is train the model
+    model <- glm(Label ~ ., data = as.data.frame(u_t))
+    # Get the scores from the model
+    score <- predict(model, as.data.frame(u_t))
+    
+    # Get the test statistic using the scores of the trained model
+    stats[i] <- ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic
+  }
+  
+  # Train the model with the actual data
+  model <- glm(Label ~ ., data = as.data.frame(u))
+  # Get the scores
+  score <- predict(model, as.data.frame(u))
+  
+  # Return whether or not the hypothesis was rejected 
+  # by checking if the statistic is under the 1-alpha quantile of the H_0 distribution
+  return(ks.test(score[1:n0], score[(n0+1):(n0+n1)], alternative = "two.sided")$statistic < quantile(stats, 1 - alpha))
+}
+```
+
+For our simulations we are going to change different parameters:
+
+- The sample sizes: $n_0$ and $n_1$.
+
+- The number of features: $k$.
+
+
+Here we will report the codes just for the first simulation, for the following ones we are going to report only the results.
+
+<div align="center"> <h4> <b> First simulation: $n_0 = 33$, $n_1 = 40$ and $k = 3$. </b> </h4></div>
+
+```{r good k3 n ~ 20}
+# Sample size
+n0 <- 33
+n1 <- 40
+# Number of features
+k <- 3
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 1, 0.1)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  # Mean of the second distribution
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_GOF", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  # Friedman's procedure
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_GOF(n0, n1, mu1, mu2, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+
+# Store the distance and the power
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+par(mfrow = c(1,2))
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+
+<div align="center"> <h4> <b> Second simulation: $n_0 = 33$, $n_1 = 40$ and $k = 10$. </b> </h4></div>
+
+```{r good k10 n ~ 20, echo = FALSE}
+# Sample size
+n0 <- 33
+n1 <- 40
+# Number of features
+k <- 10
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 1, 0.1)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_GOF", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_GOF(n0, n1, mu1, mu2, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+par(mfrow = c(1,2))
+
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+<div align="center"> <h4> <b> Third simulation: $n_0 = 94$, $n_1 = 90$ and $k = 3$. </b> </h4></div>
+
+```{r good k3 n ~ 90, echo=FALSE}
+n0 <- 94
+n1 <- 90
+# Number of features
+k <- 3
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 1, 0.1)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_GOF", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_GOF(n0, n1, mu1, mu2, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+
+par(mfrow = c(1,2))
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+
+<div align="center"> <h4> <b> Fourth simulation: $n_0 = 94$, $n_1 = 90$ and $k = 10$. </b> </h4></div>
+
+```{r good k10 n ~ 90, echo=FALSE}
+n0 <- 94
+n1 <- 90
+# Number of features
+k <- 10
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 1, 0.1)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_GOF", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_GOF(n0, n1, mu1, mu2, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+par(mfrow = c(1,2))
+
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+Aggoingi Risultati
+
+<div align="center"> <h3> <b> TWO-SAMPLE-TESTING </b> </h3></div>
+
+The two-sample testing problem, instead, occurs when we have two different data sets, $\{x_i\}_{i=1}^{N}$ drawn from $p(x)$ and $\{z_i\}_{i=1}^{M}$ drawn from $q(z)$, and we have the goal to test if $p = q$.
+
+Also in this case we will continue the explanation given in the summary of Friedman's paper. For the two-sample testing procedure we need to build the $H_0(t)$ distribution, to do so we need to: 
+
+1. Assign to the samples their correct labels (0 or 1).
+
+2. For each simulation iteration take a permutation of the labels and assign the new (permutated) labels to the data.
+
+3. Train the model (logistic regression) with the data set $\{u_i\}_{i=1}^{N+M}=\{x_i\}_{i=1}^{N} \cup \{z_{t_i}\}_{i=1}^{M}$ and obtain the scores $s_{t_i}$.
+
+4. Collect the test statistic $t_l = T(\{s_{t_i}\}_{i=1}^{N}, \{s_{t_i}\}_{i=N + 1}^{N+M})$, that we are going to use as a null distribution.
+
+
+Here is the function used for the implementation of the procedure.
+
+```{r}
+# Function that implements the Friedman's procedure two-sample-testing problem
+simul_TST <- function(mu1, mu2, n0, n1, sigma, alpha){
+  # Get the two samples
+  x <- mvrnorm(n0, mu = mu1, Sigma = diag(sigma))
+  z <- mvrnorm(n1, mu = mu2, Sigma = diag(sigma))
+  # Set the labels
+  label <- c(rep(0, n0), rep(1, n1))
+  # And put everything together 
+  u <- cbind(rbind(x, z), Label = label)
+  
+  # 'Monte Carlo' simulation size
+  P <- 50  # TODO metti 500
+  # Vector to save the test statistics
+  t_l <- rep(NA, P)
+  
+  # Simulation
+  for(i in (1:P)){  
+    # Pertutate the labels
+    l <- sample(label, n0 + n1)
+    # Put the samples together with the permutated labels
+    u_t <- rbind(cbind(x, Label = l[1:n0]), cbind(z, Label = l[(n0+1):(n0+n1)])) 
+      
+    # Train the model on the permutated data set
+    model <- glm(Label ~ ., data = as.data.frame(u_t))
+    # Get the model's scores
+    score <- predict(model, as.data.frame(u_t))   
+    
+    # Find and save the test statistic computed on the scores
+    t_l[i] <- ks.test(score[l == 0], score[l == 1])$statistic
+  }
+  
+  # Train the model on the original data and label 
+  model <- glm(Label ~ ., data = as.data.frame(u))
+  # Get the score
+  score <- predict(model, as.data.frame(u)) 
+  
+  # Return whether or not the test statistic is under the 1 - alpha quantile 
+  # Or in other words whether or not we reject the hypothesis
+  return(ks.test(score[1:n0], score[(n0+1):(n0+n1)])$statistic < quantile(t_l, 1 - alpha))
+}
+```
+
+For our simulations we are going to change different parameters:
+
+- The sample sizes: $n_0$ and $n_1$.
+
+- The number of features: $k$.
+
+
+Here we will report the codes just for the first simulation, for the following ones we are going to report only the results.
+
+<div align="center"> <h4> <b> First simulation: $n_0 = 33$, $n_1 = 40$ and $k = 3$. </b> </h4></div>
+
+```{r two k3 n ~ 20}
+# Sample size
+n0 <- 33
+n1 <- 40
+# Number of features
+k <- 3
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 0.5, 0.05)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  # Mean of the second distribution
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_TST", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  # Friedman's procedure
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_TST(mu1, mu2, n0, n1, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+# Store the distance and the power
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+par(mfrow = c(1,2))
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+
+<div align="center"> <h4> <b> Second simulation: $n_0 = 33$, $n_1 = 40$ and $k = 10$. </b> </h4></div>
+
+```{r two k10 n ~ 20, echo = FALSE}
+# Sample size
+n0 <- 33
+n1 <- 40
+# Number of features
+k <- 10
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 0.5, 0.05)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_TST", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_TST(mu1, mu2, n0, n1, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+par(mfrow = c(1,2))
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+<div align="center"> <h4> <b> Third simulation: $n_0 = 94$, $n_1 = 90$ and $k = 3$. </b> </h4></div>
+
+```{r two k3 n ~ 90, echo=FALSE}
+n0 <- 94
+n1 <- 90
+# Number of features
+k <- 3
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 0.5, 0.05)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_TST", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_TST(mu1, mu2, n0, n1, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+par(mfrow = c(1,2))
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+<div align="center"> <h4> <b> Fourth simulation: $n_0 = 94$, $n_1 = 90$ and $k = 10$. </b> </h4></div>
+
+```{r two k10 n ~ 90, echo=FALSE}
+n0 <- 94
+n1 <- 90
+# Number of features
+k <- 10
+# Simulation size
+P <- 100
+
+# Initializations
+
+# Distances between the distributions
+dist <- seq(0, 0.5, 0.05)
+# Increments to achieve the distances
+grid <- sapply(dist, Find_Increment, k = k)
+# Store the results
+result <- c()
+# Store the Power 
+POWER <- matrix(NA, 11, 2)
+# Size of the test
+alpha <- 0.05
+
+# Mean of the first distribution
+mu1 <- runif(k, 0, 1)
+# Main diagonal for the variance/covariance matrix
+sigma <- runif(k, 0, 1)
+
+# Parallel
+cl <- makeCluster(detectCores())
+
+for(l in (1:11)){
+  mu2 <- mu1 + rep(grid[l], k)
+  clusterExport(cl, c("simul_TST", "mvrnorm", "n0", "n1", "mu2", "mu1", "alpha", "sigma"))
+  result <- c(result, parallel::parSapply(cl, seq(1, P), function(.) simul_TST(mu1, mu2, n0, n1, sigma, alpha)))
+}
+stopCluster(cl)
+
+result <- matrix(result, nrow = P)
+
+for(i in (1:11)){
+  POWER[i,1] <- wasserstein_sameS(mu1,mu1+rep(grid[i],k))
+  POWER[i,2] <- sum(result[,i]==F)/P
+}
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+par(mfrow = c(1,2))
+barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
+
+plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
+points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
+```
+
+AGGIUNGI COMMENTI
+
+# 4 
+
+Load the data
+
+```{r}
+# Load the data
+load('hw3_data.Rdata')
+```
+
+We can now see that the file contained two different list, of length 85 and 93 respectively, one for each group of patients:
+
+- The data of the patients with the Autism Spectrum Disorder, are going to be contained in the  "asd_sel" list.
+
+- The data of the Typically Developed patients, are going to be contained in the "td_sel" list.
+
+In both cases, each element of the lists contains a data frame of different sizes (Mx116), where 116 represent the different ROIs and M the number of observations in time, that is different for each patient.
+
+<div align="center"> <h4> <b> Pre-processing </b> </h4></div>
+
+After loading the data we can take a look inside it. 
+
+Here are the first 10 observations in time of the ROI 2001 of the patient caltech_0051472:
+
+```{r, echo=FALSE}
+asd_data[[1]][[1]][1:10]
+```
+
+And the ones of the patient trinity_0050234:
+
+```{r, echo=FALSE}
+asd_data[[36]][[1]][1:10]
+```
+
+We can notice that there is variability in the data, that is caused by the fact that the observations came from different labs.
+
+So to deal with this we decided to standardize on a lab basis. To do so, we will compute the mean and standard deviation over the labs, then for each patient of the lab we will subtract from their time series (all 116 of them) this mean and divide by the standard deviation.
+
+
+```{r}
+# Put the data together
+data <- c(asd_data, td_data)
+
+# Get the initial of the labs
+lab <- names(data)
+iniziali <- c()
+for(name in lab) {
+  iniziali <- c(iniziali, substr(name,1,2))
+}  
+
+# And take the unique ones
+iniziali_unique <- unique(iniziali)
+
+# Iterate over initials
+for(start in iniziali_unique){
+  elements <- c() 
+  # Select the indexes of the patients of the lab 
+  idx <- seq(1:length(iniziali))[iniziali == start]
+  # Compute mean
+  mu <- mean(unlist(data[idx]))
+  # And standard deviation
+  s <- sd(unlist(data[idx]))
+  
+  # Standardize
+  for(i in idx){
+    patient <- data[[i]]
+    for(j in (1:116)){
+      patient[[j]] <- (patient[[j]]-mu)/s
+    }
+    data[[i]] <- patient 
+  }
+}
+
+# Save the standardized data
+asd_st <- data[1:85]
+td_st <- data[86:178]
+```
+
+Since we want to analyze how the ROIs of the two groups evolve in the time series, we actually are going to base our study on the auto-correlations.
+
+What we are going to do is extract each ROIs' time series, compute it's auto-correlation and extract some statistic summaries from it.
+
+For each time-series we decided to extract the following statistic summary:
+
+- Mean.
+
+- Standard Deviation. 
+
+- $1^{st}$ quartile.
+
+- $2^{nd}$ quartile, or median.
+
+- $3^{rd}$ quartile.
+
+So we will have 5 features for each ROI.
+
+```{r}
+# Number of features
+k <- 5
+
+asd <- c()
+
+# Select all the informations and save them 
+for(i in (1:length(asd_st))){
+  paziente <- asd_st[[i]]
+  for(j in (1:116)){
+    if(length(unique(paziente[[j]])) != 1)
+      # Get the autocorrelation if the values of the time series are not all the same
+      p <- acf(paziente[[j]], lag = length(paziente[[j]]), type = "correlation", pl = F)$acf
+    else
+      # Else put a vector of all 1s
+      p <- rep(1, length(paziente[[j]]) - 1)
+    # Collect al the statistic summaries
+    asd <- c(asd, mean(p))
+    asd <- c(asd, sd(p))
+    asd <- c(asd, quantile(p, 0.25))
+    asd <- c(asd, median(p))
+    asd <- c(asd, quantile(p, 0.75))
+  }
+}
+# Put the data in matrix form
+asd <- t(matrix(asd, nrow = 116*k))
+
+
+td <- c()
+
+# Select all the informations and save them 
+for(i in (1:length(td_st))){
+  paziente <- td_st[[i]]
+  for(j in (1:116)){
+    if(length(unique(paziente[[j]])) != 1)
+      # Get the autocorrelation if the values of the time series are not all the same
+      p <- acf(paziente[[j]], lag = length(paziente[[j]]), type = "correlation", pl = F)$acf
+    else
+      # Else put a vector of all 1s
+      p <- rep(1, length(paziente[[j]]) - 1)
+    # Collect al the statistic summaries
+    td <- c(td, mean(p))
+    td <- c(td, sd(p))
+    td <- c(td, quantile(p, 0.25))
+    td <- c(td, median(p))
+    td <- c(td, quantile(p, 0.75))
+  }
+}
+# Put the data in matrix form
+td <- t(matrix(td, nrow = 116*k))
+
+# Put the data together with the labels
+u <- cbind(rbind(asd, td), Label = c(rep(1, length(asd_data)), rep(0, length(td_data))))
+```
+
+Now we will try and use the Two-Sample-Testing procedure on our data, to check two different things:
+
+1. If the ASD and TD patients are distributed in the same way.
+
+2. To confirm that the procedure does indeed work, if it doesn't reject $H_0$ with both samples coming from ASD. 
+
+Again we will leave the code only for the first, since the procedure is the same.
+
+<div align="center"> <h4> <b> First: Data from ASD ($n_0 = 85$) and TD ($n_1 = 93$). </b> </h4></div>
+
+```{r ASD/TD}
+# Size of the original data frames
+n0 <- 85
+n1<- 93
+
+# Simulation size
+P <- 200
+
+# ASD patients w/o labels
+x <- u[(1:n0),(1:(k*116))]
+# TD patients w/o labels
+z <- u[(n0+1):(n0+n1),(1:(k*116))]
+
+t_l <- rep(NA, P)
+# Actual labels
+label <- c(rep(0, n0), rep(1, n1))
+  
+# Simulation
+for(i in (1:P)){  
+  # Permutate the labels
+  l <- sample(label, n0 + n1)
+  # Put the samples together with the permutated labels
+  u_t <- rbind(cbind(x, Label = l[1:n0]), cbind(z, Label = l[(n0+1):(n0+n1)])) 
+  # Train the model on the permutated data set
+  model <- glmnet(u_t[,(1:(k*116))], l, family = "gaussian", maxit = 100, alpha = 0.2)
+  # Get the model's scores
+  score <- predict(model, u_t[,(1:(k*116))], s = 0.5)
+  # Find and save the test statistic computed on the scores
+  t_l[i] <- ks.test(as.numeric(score[l == 0]), as.numeric(score[l == 1]))$statistic
+}
+```
+
+```{r, echo=FALSE, fig.align='center'}
+hist(t_l, xlim = c(0,1), col ='#D3BDB0', prob = T, main = 'ASD/TD with glm with regularization', xlab = 'test statistics')
+legend(0.7, 5, legend=c("Quantile(1 - alpha)", "Test statistic"),
+       col=c('#093824', '#71B48D'), box.lty=0, lty=1, lwd=3  ,cex=0.8)
+abline(v=quantile(t_l, 1-alpha), lwd = 3, col = '#093824')
+
+model <- glmnet(u[,(1:(k*116))], label, family = "gaussian", maxit = 100, alpha = 0.2)
+score <- predict(model, u[,(1:(k*116))], s = 0.05)
+abline(v=ks.test(as.numeric(score[1:n0]), as.numeric(score[(n0+1):(n0+n1)]))$statistic, col = '#71B48D', lwd =3)
+```
+
+<div align="center"> <h4> <b> Second: Data from ASD ($n_0 = 50$) and ASD ($n_1 = 35$). </b> </h4></div>
+
+```{r ASD/ASD, echo = FALSE}
+# Simulation size
+P <- 500
+
+# ASD patients w/o labels
+x <- u[(1:50),(1:(k*116))]
+# TD patients w/o labels
+z <- u[(51:n0),(1:(k*116))]
+
+u_T <- cbind(rbind(x, z), Label = c(rep(1, 50), rep(0, n0 - 50)))
+t_l <- rep(NA, P)
+
+# Actual labels
+label <- c(rep(1, 50), rep(0, n0 - 50))
+  
+for(i in (1:P)){  
+  # Permutate the labels
+  l <- sample(label, n0)
+  
+  # Put the samples together with the permutated labels
+  u_t <- rbind(cbind(x, Label = l[1: 50]), cbind(z, Label = l[51:n0])) 
+  
+  # Train a model
+  model <- glmnet(u_t[,(1:(k*116))], l, family = "gaussian", maxit = 100, alpha = 0.2)
+  # Get the model's scores
+  score <- predict(model, u_t[,(1:(k*116))], s = 0.05)
+  # Find and save the test statistic computed on the scores
+  t_l[i] <- ks.test(as.numeric(score[l == 0]), as.numeric(score[l == 1]))$statistic
+}
+
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+hist(t_l, xlim = c(0,1), col ='#D3BDB0', prob = T, main = 'ASD/ASD with glm with regularization', xlab = 'test statistics') # TODO aggiungi main
+legend(0, 5, legend=c("Quantile(1 - alpha)", "Test statistic"),
+       col=c('#093824', '#71B48D'), box.lty=0, lty=1, lwd=3  ,cex=0.8)
+abline(v=quantile(t_l, 1-alpha), lwd = 3, col = '#093824')
+
+model <- glmnet(u_T[,(1:(k*116))], label, family = "gaussian", maxit = 100, alpha = 0.2)
+score <- predict(model, u_T[,(1:(k*116))], s = 0.05)
+abline(v=ks.test(as.numeric(score[1:50]), as.numeric(score[(50+1):(n0)]))$statistic, col = '#71B48D', lwd =3)
+
+```
+
+
+AGGIUNGI CONCLUSIONI
+
