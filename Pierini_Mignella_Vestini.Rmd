@@ -39,8 +39,9 @@ Find_Increment <- function(d, k){
 
 ```
 
-# 3
 
+
+<div align="center"> <h2> <b> 3 </b> </h2></div>
 <div align="center"> <h3> <b> GOODNESS-OF-FIT </b> </h3></div>
 
 
@@ -72,7 +73,7 @@ simul_GOF <- function(n0, n1, mu1, mu2, sigma, alpha){
   u <- cbind(rbind(x, z), Label = label)
   
   # Monte Carlo simulation size to find the H_0(t) distribution
-  N <- 50  # TODO metti 500
+  N <- 500 
   
   # Vector to save the test statistics 
   stats <- rep(NA, N)
@@ -113,10 +114,7 @@ For our simulations we are going to change different parameters:
 
 - The number of features: $k$.
 
-
 Here we will report the codes just for the first simulation, for the following ones we are going to report only the results.
-
-<div align="center"> <h4> <b> First simulation: $n_0 = 33$, $n_1 = 40$ and $k = 3$. </b> </h4></div>
 
 ```{r good k3 n ~ 20}
 # Sample size
@@ -166,10 +164,13 @@ for(i in (1:11)){
 }
 ```
 
+<div align="center"> <h4> <b> First simulation: $n_0 = 33$, $n_1 = 40$ and $k = 3$. </b> </h4></div>
 
 ```{r, echo=FALSE, fig.align='center'}
 par(mfrow = c(1,2))
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
@@ -177,14 +178,14 @@ points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
 ```
 
 
-<div align="center"> <h4> <b> Second simulation: $n_0 = 33$, $n_1 = 40$ and $k = 10$. </b> </h4></div>
+<div align="center"> <h4> <b> Second simulation: $n_0 = 33$, $n_1 = 40$ and $k = 20$. </b> </h4></div>
 
 ```{r good k10 n ~ 20, echo = FALSE}
 # Sample size
 n0 <- 33
 n1 <- 40
 # Number of features
-k <- 10
+k <- 20 
 # Simulation size
 P <- 100
 
@@ -229,6 +230,8 @@ for(i in (1:11)){
 par(mfrow = c(1,2))
 
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
@@ -286,6 +289,8 @@ for(i in (1:11)){
 
 par(mfrow = c(1,2))
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
@@ -293,13 +298,13 @@ points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
 ```
 
 
-<div align="center"> <h4> <b> Fourth simulation: $n_0 = 94$, $n_1 = 90$ and $k = 10$. </b> </h4></div>
+<div align="center"> <h4> <b> Fourth simulation: $n_0 = 94$, $n_1 = 90$ and $k = 20$. </b> </h4></div>
 
 ```{r good k10 n ~ 90, echo=FALSE}
 n0 <- 94
 n1 <- 90
 # Number of features
-k <- 10
+k <- 20
 # Simulation size
 P <- 100
 
@@ -344,13 +349,23 @@ for(i in (1:11)){
 par(mfrow = c(1,2))
 
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
 points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
 ```
 
-Aggoingi Risultati
+As we can see from the plots above (the left ones): chosen the value $\alpha = 0.05$ under the null hypothesis we obtain that the size of the test ($P('reject \ H_0'|'H_0 \ is \ True')$) is around the value of $\alpha$.
+
+About the power ($P('reject \ H_0'|'H_0 \ is \ False')$) instead, from the plots on the right we can see:
+
+- It increases with the distance between the distributions.
+
+- It increases with the number of samples $N = n_0 + n_1$.
+
+About $k$ we were not able to notice any big difference in our results, but this could be caused by the fact that we didn't increased it enough.
 
 <div align="center"> <h3> <b> TWO-SAMPLE-TESTING </b> </h3></div>
 
@@ -381,7 +396,7 @@ simul_TST <- function(mu1, mu2, n0, n1, sigma, alpha){
   u <- cbind(rbind(x, z), Label = label)
   
   # 'Monte Carlo' simulation size
-  P <- 50  # TODO metti 500
+  P <- 500  
   # Vector to save the test statistics
   t_l <- rep(NA, P)
   
@@ -474,6 +489,8 @@ for(i in (1:11)){
 ```{r, echo=FALSE, fig.align='center'}
 par(mfrow = c(1,2))
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
@@ -481,14 +498,14 @@ points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
 ```
 
 
-<div align="center"> <h4> <b> Second simulation: $n_0 = 33$, $n_1 = 40$ and $k = 10$. </b> </h4></div>
+<div align="center"> <h4> <b> Second simulation: $n_0 = 33$, $n_1 = 40$ and $k = 20$. </b> </h4></div>
 
 ```{r two k10 n ~ 20, echo = FALSE}
 # Sample size
 n0 <- 33
 n1 <- 40
 # Number of features
-k <- 10
+k <- 20
 # Simulation size
 P <- 100
 
@@ -532,6 +549,8 @@ for(i in (1:11)){
 ```{r, echo=FALSE, fig.align='center'}
 par(mfrow = c(1,2))
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
@@ -588,19 +607,21 @@ for(i in (1:11)){
 ```{r, echo=FALSE, fig.align='center'}
 par(mfrow = c(1,2))
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
 points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
 ```
 
-<div align="center"> <h4> <b> Fourth simulation: $n_0 = 94$, $n_1 = 90$ and $k = 10$. </b> </h4></div>
+<div align="center"> <h4> <b> Fourth simulation: $n_0 = 94$, $n_1 = 90$ and $k = 20$. </b> </h4></div>
 
 ```{r two k10 n ~ 90, echo=FALSE}
 n0 <- 94
 n1 <- 90
 # Number of features
-k <- 10
+k <- 20
 # Simulation size
 P <- 100
 
@@ -644,17 +665,22 @@ for(i in (1:11)){
 ```{r, echo=FALSE, fig.align='center'}
 par(mfrow = c(1,2))
 barplot(prop.table(table(result[,1])), col = c('#715B64','#D3BDB0'), main = TeX(r'(Probabilities with $H_0$ true)'), names.arg = c('Reject','No Reject'))
+abline(h = alpha)
+legend('topleft', legend = c('alpha'), lty = 1, box.lwd = 0)
 mtext(paste('Number of features k:', k, 'n0:', n0, 'and n1:', n1), side=1, line = +3, col = '#715B64')
 
 plot(POWER[(1:11),1], y = POWER[(1:11),2] ,xlab = 'Distance of the distributions', ylab = 'Power', main = TeX(r'(Power of the test/distance)'), type = 'l', lwd = 2)
 points(POWER[(1:11),1], POWER[(1:11),2], col = '#715B64', pch = 19)
 ```
 
-AGGIUNGI COMMENTI
+Doing a comparison with the goodness-of-fit procedure, we can see similar pattern while talking about $\alpha$ and $k$. 
 
-# 4 
+About the power instead we noticed it had a trend of growing faster with the distance, for this reason we decided to reduce the interval of the distance from $[0, \ 1]$ to $[0, \ 0.5]$.
 
-Load the data
+
+<div align="center"> <h2> <b> 4 </b> </h2></div>
+
+<div align="center"> <h4> <b> The data. </b> </h4></div>
 
 ```{r}
 # Load the data
@@ -729,11 +755,10 @@ asd_st <- data[1:85]
 td_st <- data[86:178]
 ```
 
-Since we want to analyze how the ROIs of the two groups evolve in the time series, we actually are going to base our study on the auto-correlations.
 
-What we are going to do is extract each ROIs' time series, compute it's auto-correlation and extract some statistic summaries from it.
+<div align="center"> <h3> <b> Analysis. </b> </h3></div>
 
-For each time-series we decided to extract the following statistic summary:
+Now that the data is standardized by lab, we can start working with it, what we are going to do is extract from each time-series the following statistic summary:
 
 - Mean.
 
@@ -746,6 +771,179 @@ For each time-series we decided to extract the following statistic summary:
 - $3^{rd}$ quartile.
 
 So we will have 5 features for each ROI.
+
+
+```{r}
+# Number of features
+k <- 5
+
+asd <- c()
+
+# Select all the informations and save them 
+for(i in (1:length(asd_st))){
+  paziente <- asd_st[[i]]
+  for(j in (1:116)){
+    p <- paziente[[j]]
+    # Collect al the statistic summaries
+    asd <- c(asd, mean(p))
+    asd <- c(asd, sd(p))
+    asd <- c(asd, quantile(p, 0.25))
+    asd <- c(asd, median(p))
+    asd <- c(asd, quantile(p, 0.75))
+  }
+}
+# Put the data in matrix form
+asd <- t(matrix(asd, nrow = 116*k))
+
+
+td <- c()
+
+# Select all the informations and save them 
+for(i in (1:length(td_st))){
+  paziente <- td_st[[i]]
+  for(j in (1:116)){
+    p <- paziente[[j]]
+    td <- c(td, mean(p))
+    td <- c(td, sd(p))
+    td <- c(td, quantile(p, 0.25))
+    td <- c(td, median(p))
+    td <- c(td, quantile(p, 0.75))
+  }
+}
+# Put the data in matrix form
+td <- t(matrix(td, nrow = 116*k))
+
+# Put the data together with the labels
+u <- cbind(rbind(asd, td), Label = c(rep(1, length(asd_data)), rep(0, length(td_data))))
+```
+
+Now we will try and use the Two-Sample-Testing procedure on our data, to check:
+
+1. If the ASD and TD patients are distributed in the same way.
+
+2. To confirm that the procedure does indeed work, if it doesn't reject $H_0$ with both samples coming from ASD. 
+
+Again we will leave the code only for the first, since the procedure is the same.
+
+```{r ASD/TD}
+# Size of the original data frames
+n0 <- 85
+n1<- 93
+
+# Simulation size
+P <- 200
+
+# ASD patients w/o labels
+x <- u[(1:n0),(1:(k*116))]
+# TD patients w/o labels
+z <- u[(n0+1):(n0+n1),(1:(k*116))]
+
+t_l <- rep(NA, P)
+# Actual labels
+label <- c(rep(0, n0), rep(1, n1))
+  
+# Simulation
+for(i in (1:P)){  
+  # Permutate the labels
+  l <- sample(label, n0 + n1)
+  # Put the samples together with the permutated labels
+  u_t <- rbind(cbind(x, Label = l[1:n0]), cbind(z, Label = l[(n0+1):(n0+n1)])) 
+  # Train the model on the permutated data set
+  model <- glmnet(u_t[,(1:(k*116))], l, family = "gaussian", maxit = 100, alpha = 0.2)
+  # Get the model's scores
+  score <- predict(model, u_t[,(1:(k*116))], s = 0.5)
+  # Find and save the test statistic computed on the scores
+  t_l[i] <- ks.test(as.numeric(score[l == 0]), as.numeric(score[l == 1]))$statistic
+}
+```
+
+<div align="center"> <h4> <b> First: Data from ASD ($n_0 = 85$) and TD ($n_1 = 93$). </b> </h4></div>
+
+```{r, echo=FALSE, fig.align='center'}
+alpha <- 0.05
+hist(t_l, xlim = c(0,1), col ='#D3BDB0', prob = T, main = 'ASD/TD with glm with regularization', xlab = 'test statistics')
+legend(0.7, 5.2, legend=c("Quantile(1 - alpha)", "Test statistic"),
+       col=c('#093824', '#71B48D'), box.lty=0, lty=1, lwd=3  ,cex=0.8)
+abline(v=quantile(t_l, 1-alpha), lwd = 3, col = '#093824')
+
+model <- glmnet(u[,(1:(k*116))], label, family = "gaussian", maxit = 100, alpha = 0.2)
+score <- predict(model, u[,(1:(k*116))], s = 0.05)
+abline(v=ks.test(as.numeric(score[1:n0]), as.numeric(score[(n0+1):(n0+n1)]))$statistic, col = '#71B48D', lwd =3)
+```
+
+<div align="center"> <h4> <b> Second: Data from ASD ($n_0 = 50$) and ASD ($n_1 = 35$). </b> </h4></div>
+
+```{r ASD/ASD, echo = FALSE}
+# Simulation size
+P <- 500
+
+# ASD patients w/o labels
+x <- u[(1:50),(1:(k*116))]
+# TD patients w/o labels
+z <- u[(51:n0),(1:(k*116))]
+
+u_T <- cbind(rbind(x, z), Label = c(rep(1, 50), rep(0, n0 - 50)))
+t_l <- rep(NA, P)
+
+# Actual labels
+label <- c(rep(1, 50), rep(0, n0 - 50))
+  
+for(i in (1:P)){  
+  # Permutate the labels
+  l <- sample(label, n0)
+  
+  # Put the samples together with the permutated labels
+  u_t <- rbind(cbind(x, Label = l[1: 50]), cbind(z, Label = l[51:n0])) 
+  
+  # Train a model
+  model <- glmnet(u_t[,(1:(k*116))], l, family = "gaussian", maxit = 100, alpha = 0.2)
+  # Get the model's scores
+  score <- predict(model, u_t[,(1:(k*116))], s = 0.05)
+  # Find and save the test statistic computed on the scores
+  t_l[i] <- ks.test(as.numeric(score[l == 0]), as.numeric(score[l == 1]))$statistic
+}
+
+```
+
+
+```{r, echo=FALSE, fig.align='center'}
+hist(t_l, xlim = c(0,1), col ='#D3BDB0', prob = T, main = 'ASD/ASD with glm with regularization', xlab = 'test statistics') 
+legend(0, 5, legend=c("Quantile(1 - alpha)", "Test statistic"),
+       col=c('#093824', '#71B48D'), box.lty=0, lty=1, lwd=3  ,cex=0.8)
+abline(v=quantile(t_l, 1-alpha), lwd = 3, col = '#093824')
+
+model <- glmnet(u_T[,(1:(k*116))], label, family = "gaussian", maxit = 100, alpha = 0.2)
+score <- predict(model, u_T[,(1:(k*116))], s = 0.05)
+abline(v=ks.test(as.numeric(score[1:50]), as.numeric(score[(50+1):(n0)]))$statistic, col = '#71B48D', lwd =3)
+
+```
+
+In the first plot we can notice that, by applying the Friedman's procedure, we were able to recognize that the data coming from the patients are distributed in two different ways according to their group.
+
+In fact, we can see that the test statistic (light green) coming from the actual data is over the $1 - \alpha$ quantile of the distribution of the test statistics, and as we know we have to reject the $H_0$ hypothesis.
+
+Instead in the second case we have an opposite result, as expected given the fact that we are using samples coming from the same group. The test statistic coming from the actual data is under the $1 - \alpha$ quantile of the distribution of the test statistics, and this means that we can't reject the $H_0$ hypothesis.
+
+
+<div align="center"> <h3> <b> Another analysis. </b> </h3></div>
+
+Another type of analysis that we want to underline is how the ROIs of the two groups evolve in the time series,
+so we actually are going to base our study on the auto-correlations.
+
+What we are going to do is extract each ROIs' time series, compute it's auto-correlation and extract the same statistic summaries as previously.
+
+So, again, for each time-series we decided to extract the following statistic summary:
+
+- Mean.
+
+- Standard Deviation. 
+
+- $1^{st}$ quartile.
+
+- $2^{nd}$ quartile, or median.
+
+- $3^{rd}$ quartile.
+
 
 ```{r}
 # Number of features
@@ -802,17 +1000,16 @@ td <- t(matrix(td, nrow = 116*k))
 u <- cbind(rbind(asd, td), Label = c(rep(1, length(asd_data)), rep(0, length(td_data))))
 ```
 
-Now we will try and use the Two-Sample-Testing procedure on our data, to check two different things:
+Also in this case we are going to use the Two-Sample-Testing procedure and check:
 
 1. If the ASD and TD patients are distributed in the same way.
 
-2. To confirm that the procedure does indeed work, if it doesn't reject $H_0$ with both samples coming from ASD. 
+2. If it doesn't reject $H_0$ with both samples coming from ASD. 
 
-Again we will leave the code only for the first, since the procedure is the same.
 
 <div align="center"> <h4> <b> First: Data from ASD ($n_0 = 85$) and TD ($n_1 = 93$). </b> </h4></div>
 
-```{r ASD/TD}
+```{r ASD/TD 2, echo = FALSE}
 # Size of the original data frames
 n0 <- 85
 n1<- 93
@@ -846,7 +1043,7 @@ for(i in (1:P)){
 
 ```{r, echo=FALSE, fig.align='center'}
 hist(t_l, xlim = c(0,1), col ='#D3BDB0', prob = T, main = 'ASD/TD with glm with regularization', xlab = 'test statistics')
-legend(0.7, 5, legend=c("Quantile(1 - alpha)", "Test statistic"),
+legend(0.7, 4.7, legend=c("Quantile(1 - alpha)", "Test statistic"),
        col=c('#093824', '#71B48D'), box.lty=0, lty=1, lwd=3  ,cex=0.8)
 abline(v=quantile(t_l, 1-alpha), lwd = 3, col = '#093824')
 
@@ -857,7 +1054,7 @@ abline(v=ks.test(as.numeric(score[1:n0]), as.numeric(score[(n0+1):(n0+n1)]))$sta
 
 <div align="center"> <h4> <b> Second: Data from ASD ($n_0 = 50$) and ASD ($n_1 = 35$). </b> </h4></div>
 
-```{r ASD/ASD, echo = FALSE}
+```{r ASD/ASD 2, echo = FALSE}
 # Simulation size
 P <- 500
 
@@ -891,8 +1088,8 @@ for(i in (1:P)){
 
 
 ```{r, echo=FALSE, fig.align='center'}
-hist(t_l, xlim = c(0,1), col ='#D3BDB0', prob = T, main = 'ASD/ASD with glm with regularization', xlab = 'test statistics') # TODO aggiungi main
-legend(0, 5, legend=c("Quantile(1 - alpha)", "Test statistic"),
+hist(t_l, xlim = c(0,1), col ='#D3BDB0', prob = T, main = 'ASD/ASD with glm with regularization', xlab = 'test statistics') 
+legend(0, 4.5, legend=c("Quantile(1 - alpha)", "Test statistic"),
        col=c('#093824', '#71B48D'), box.lty=0, lty=1, lwd=3  ,cex=0.8)
 abline(v=quantile(t_l, 1-alpha), lwd = 3, col = '#093824')
 
@@ -902,6 +1099,7 @@ abline(v=ks.test(as.numeric(score[1:50]), as.numeric(score[(50+1):(n0)]))$statis
 
 ```
 
+The results we obtained with this "new" analysis are consistent with the ones got before. 
 
-AGGIUNGI CONCLUSIONI
+So, given what we saw, we can assume that there is an actual difference in the distributions of the data coming from the ASD and TD patients.
 
