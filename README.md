@@ -1,6 +1,6 @@
 # SDS-HW3
 
-My personal repository for the third group homework for the *Statistical Methods for Data Science* course in *Sapienza University*.
+Repository for the third group homework for the *Statistical Methods for Data Science* course in *Sapienza University*.
 
 # Content
 
